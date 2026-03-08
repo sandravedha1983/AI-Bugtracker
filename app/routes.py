@@ -5,7 +5,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 from .models import db, User, Bug
 from .ai_utils import predict_priority, generate_summary
-from .email_utils import generate_verification_token, confirm_verification_token, send_verification_email
+from .email_utils import send_verification_email
 from .decorators import role_required, admin_required, developer_required, tester_required
 from flask_dance.contrib.google import google
 from flask_dance.consumer import oauth_authorized
@@ -108,18 +108,21 @@ def signup():
         new_user = User(name=name, email=email, role=role, is_verified=False)
         new_user.set_password(password)
         
-        token = generate_verification_token(email, current_app.config['SECRET_KEY'])
-        new_user.verification_token = token
+        from .email_utils import generate_otp
+        otp = generate_otp()
+        new_user.verification_code = otp
+        from datetime import datetime, timedelta
+        new_user.verification_expiry = datetime.utcnow() + timedelta(hours=1)
         
         db.session.add(new_user)
         db.session.commit()
         
-        if send_verification_email(email, token):
-            flash('Signup successful! Please check your email to verify your account.', 'success')
+        if send_verification_email(email, otp):
+            flash('Signup successful! Please check your email for the 6-digit verification code.', 'success')
+            return redirect(url_for('main.verify_otp', email=email))
         else:
             flash('Signup successful, but the verification email could not be sent. Please contact support.', 'warning')
-            
-        return redirect(url_for('main.login'))
+            return redirect(url_for('main.login'))
 
     return render_template('signup.html')
 
@@ -156,23 +159,42 @@ def api_signup():
     """
     return jsonify({"message": "Signup successful"}), 201
 
+@main_bp.route('/verify-otp', methods=['GET', 'POST'])
+def verify_otp():
+    email = request.args.get('email')
+    if request.method == 'POST':
+        email = request.form.get('email')
+        otp = request.form.get('otp')
+        
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            flash('User not found.', 'danger')
+            return redirect(url_for('main.signup'))
+        
+        if user.is_verified:
+            flash('Account already verified. Please login.', 'info')
+            return redirect(url_for('main.login'))
+            
+        if user.verification_code == otp:
+            from datetime import datetime
+            if user.verification_expiry and user.verification_expiry > datetime.utcnow():
+                user.is_verified = True
+                user.verification_code = None
+                user.verification_expiry = None
+                db.session.commit()
+                flash('Your account has been verified! You can now login.', 'success')
+                return redirect(url_for('main.login'))
+            else:
+                flash('Verification code has expired. Please request a new one.', 'danger')
+        else:
+            flash('Invalid verification code.', 'danger')
+            
+    return render_template('verify_otp.html', email=email)
+
 @main_bp.route('/verify-email/<token>')
 def verify_email(token):
-    email = confirm_verification_token(token, current_app.config['SECRET_KEY'])
-    if not email:
-        flash('The verification link is invalid or has expired. You can request a new one.', 'danger')
-        return redirect(url_for('main.login'))
-    
-    user = User.query.filter_by(email=email).first_or_404()
-    if user.is_verified:
-        flash('Account already verified. Please login.', 'info')
-    else:
-        user.is_verified = True
-        user.verification_token = None
-        db.session.commit()
-        flash('Your account has been verified! You can now login.', 'success')
-        return render_template('verify_success.html')
-    
+    # Legacy link support - redirect to login
+    flash('Verification links are no longer supported. Please use the 6-digit code sent to your email.', 'info')
     return redirect(url_for('main.login'))
 
 @main_bp.route('/resend-verification', methods=['GET', 'POST'])
@@ -184,9 +206,16 @@ def resend_verification_request():
             if user.is_verified:
                 flash('Your account is already verified.', 'info')
             else:
-                token = generate_verification_token(email, current_app.config['SECRET_KEY'])
-                if send_verification_email(email, token):
-                    flash('A new verification email has been sent.', 'success')
+                from .email_utils import generate_otp
+                otp = generate_otp()
+                user.verification_code = otp
+                from datetime import datetime, timedelta
+                user.verification_expiry = datetime.utcnow() + timedelta(hours=1)
+                db.session.commit()
+                
+                if send_verification_email(email, otp):
+                    flash('A new verification code has been sent.', 'success')
+                    return redirect(url_for('main.verify_otp', email=email))
                 else:
                     flash('Failed to send verification email. Please try again later.', 'danger')
         else:
@@ -200,30 +229,28 @@ def logout():
     logout_user()
     return redirect(url_for('main.login'))
 
-@oauth_authorized.connect
-def google_logged_in(blueprint, token):
-    if not token:
-        flash("Failed to log in with Google.", "danger")
-        return False
+@main_bp.route("/google/callback")
+def google_callback():
+    if not google.authorized:
+        return redirect(url_for("google.login"))
 
     resp = google.get("/oauth2/v2/userinfo")
     if not resp.ok:
         flash("Failed to fetch user info from Google.", "danger")
-        return False
+        return redirect(url_for("main.login"))
 
     google_info = resp.json()
     email = google_info["email"]
     name = google_info.get("name", email.split('@')[0])
 
-    try:
-        user = User.query.filter_by(email=email).one()
-    except NoResultFound:
+    user = User.query.filter_by(email=email).first()
+    if not user:
         # Create new user if they don't exist
         user = User(
             name=name,
             email=email,
-            role="tester", # Default role for Google login
-            is_verified=True # Google accounts are pre-verified
+            role="tester",
+            is_verified=True
         )
         db.session.add(user)
         db.session.commit()

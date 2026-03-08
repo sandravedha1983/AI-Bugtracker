@@ -13,7 +13,8 @@ class User(db.Model, UserMixin):
     role = db.Column(db.String(20), nullable=False) # admin, developer, tester
     is_verified = db.Column(db.Boolean, default=False)
     is_suspended = db.Column(db.Boolean, default=False)
-    verification_token = db.Column(db.String(255), nullable=True)
+    verification_code = db.Column(db.String(6), nullable=True)
+    verification_expiry = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_active_at = db.Column(db.DateTime, default=datetime.utcnow)
     

@@ -5,7 +5,7 @@ from werkzeug.security import check_password_hash
 from functools import wraps
 from .models import db, User, Bug
 from datetime import datetime, timedelta
-from .email_utils import send_verification_email, generate_verification_token
+from .email_utils import send_verification_email, generate_otp
 from .analytics_utils import (
     get_priority_distribution, 
     get_status_overview, 
@@ -158,11 +158,13 @@ def manual_verify(user_id):
 @admin_bp.route('/email/resend/<int:user_id>', methods=['POST'])
 @admin_session_required
 def resend_verification(user_id):
-    user = User.query.get_or_404(user_id)
-    # Use current_app secret key
-    token = generate_verification_token(user.email, current_app.config['SECRET_KEY'])
-    if send_verification_email(user.email, token):
-        flash(f"Verification email resent to {user.email}.", "success")
+    otp = generate_otp()
+    user.verification_code = otp
+    user.verification_expiry = datetime.utcnow() + timedelta(hours=1)
+    db.session.commit()
+    
+    if send_verification_email(user.email, otp):
+        flash(f"Verification code resent to {user.email}.", "success")
     else:
         flash("Failed to send email.", "danger")
     return redirect(url_for('platform_admin.email_management'))

@@ -36,6 +36,14 @@ def create_app():
         logger.info("Using SQLite for local development.")
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    # Connection Stability for Neon PostgreSQL
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+        'pool_size': 10,
+        'max_overflow': 20
+    }
 
     # Session & Cookie Security (Hardened for Serverless)
     app.config['SESSION_COOKIE_SECURE'] = True
@@ -82,7 +90,7 @@ def create_app():
         client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
         scope=["profile", "email"],
         offline=True,
-        reprocess_consent=True
+        redirect_to="main.google_callback"
     )
     app.register_blueprint(google_bp, url_prefix="/login")
 
