@@ -18,13 +18,18 @@ class Config:
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # Connection Stability for Neon PostgreSQL
+    # Engine Options (Conditional)
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
-        'pool_recycle': 300,
-        'pool_size': 10,
-        'max_overflow': 20
+        'pool_recycle': 300
     }
+    
+    # Add pool settings only for PostgreSQL
+    if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith("postgresql"):
+        SQLALCHEMY_ENGINE_OPTIONS.update({
+            'pool_size': 10,
+            'max_overflow': 20
+        })
 
     # Session & Cookie Security
     SESSION_COOKIE_SECURE = True

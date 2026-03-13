@@ -24,4 +24,6 @@ jobs:
       run: |
         export SECRET_KEY=test_secret
         export DATABASE_URL=sqlite:///:memory:
-        pytest
+        export PYTHONPATH=$PYTHONPATH:.
+        python -m pytest
+

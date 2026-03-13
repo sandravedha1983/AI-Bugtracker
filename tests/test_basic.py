@@ -8,6 +8,7 @@ from config import Config
 
 class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SQLALCHEMY_ENGINE_OPTIONS = {}
     TESTING = True
     WTF_CSRF_ENABLED = False
 
