@@ -1,75 +1,48 @@
 import os
 import logging
 from flask import Flask
+from flasgger import Swagger
 from flask_login import LoginManager
 from dotenv import load_dotenv
-from flask_dance.contrib.google import make_google_blueprint, google
-from flasgger import Swagger
-from .models import db, User
-from .email_utils import mail
-from .analytics_routes import analytics_bp
-from .admin_routes import admin_bp
+from flask_dance.contrib.google import make_google_blueprint
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_bcrypt import Bcrypt
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def create_app():
+from extensions import db, mail, csrf, limiter, bcrypt
+
+# Modular Imports
+from models import User, Bug # Import models to ensure they are registered
+from routes import main_bp, admin_bp, analytics_bp, api_bp
+from config import Config
+
+
+def create_app(config_class=Config):
     load_dotenv()
     
     app = Flask(__name__, 
                 template_folder='../templates', 
                 static_folder='../static')
-    
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-12345')
-    
-    # Database Configuration
-    database_url = os.environ.get('DATABASE_URL')
-    
-    if database_url:
-        # Fix for PostgreSQL: Vercel/Heroku provide 'postgres://' which SQLAlchemy 1.4+ needs as 'postgresql://'
-        if database_url.startswith("postgres://"):
-            database_url = database_url.replace("postgres://", "postgresql://", 1)
-        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    else:
-        # Local development fallback to SQLite
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
-        logger.info("Using SQLite for local development.")
 
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # Connection Stability for Neon PostgreSQL
-    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
-        'pool_size': 10,
-        'max_overflow': 20
-    }
-
-    # Session & Cookie Security (Hardened for Serverless)
-    app.config['SESSION_COOKIE_SECURE'] = True
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    app.config['PERMANENT_SESSION_LIFETIME'] = 3600 # 1 hour
-
-    # Mail Configuration
-    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
-    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
-    app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
-    app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'False').lower() == 'true'
-    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'AI Bug Tracker <noreply@gmail.com>')
-    app.config['MAIL_DEBUG'] = True
-    app.config['ADMIN_PASSWORD_HASH'] = os.environ.get('ADMIN_PASSWORD_HASH')
-
+    app.config.from_object(config_class)
+    
     db.init_app(app)
     mail.init_app(app)
+    csrf.init_app(app)
+    limiter.init_app(app)
+    bcrypt.init_app(app)
     
-    # Swagger - only initialize if not in a Vercel function (optional, helps startup)
+    # Swagger initialization
     if not os.environ.get('VERCEL') or os.environ.get('ENABLE_SWAGGER') == 'True':
         Swagger(app)
     else:
-        logger.info("Skipping Swagger initialization for faster cold start.")
+        logger.info("Skipping Swagger initialization.")
 
     login_manager = LoginManager()
     login_manager.init_app(app)
@@ -79,27 +52,32 @@ def create_app():
     def load_user(user_id):
         return User.query.get(int(user_id))
 
-    from .routes import main_bp
+    # Register Blueprints
     app.register_blueprint(main_bp)
     app.register_blueprint(analytics_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(api_bp)
 
     # Google OAuth Configuration
     google_bp = make_google_blueprint(
-        client_id=os.environ.get("GOOGLE_CLIENT_ID"),
-        client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+        client_id=app.config.get("GOOGLE_CLIENT_ID"),
+        client_secret=app.config.get("GOOGLE_CLIENT_SECRET"),
         scope=["profile", "email"],
         offline=True,
         redirect_to="main.google_callback"
     )
     app.register_blueprint(google_bp, url_prefix="/login")
 
-    # Automatically create tables in the database (Neon PostgreSQL)
+
+    # Automatically create tables in the database
     with app.app_context():
         try:
             db.create_all()
             logger.info("Database tables initialized successfully.")
         except Exception as e:
-            logger.error(f"Failed to initialize database tables: {str(e)}")
+            logger.error(f"Failed to initialize database: {str(e)}")
+
+    return app
+
 
     return app

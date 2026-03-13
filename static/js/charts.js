@@ -92,29 +92,32 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-    // 4. STACKED BAR CHART - Bugs by Developer
-    fetch('/api/analytics/developer-load')
+    // 4. LINE CHART - Resolution Time Trend
+    fetch('/api/analytics/resolution-trend')
         .then(response => response.json())
         .then(data => {
-            const ctx = document.getElementById('developerChart').getContext('2d');
+            const ctx = document.getElementById('resolutionChart').getContext('2d');
             new Chart(ctx, {
-                type: 'bar',
+                type: 'line',
                 data: {
                     labels: data.labels,
                     datasets: [{
-                        label: 'Assigned Bugs',
+                        label: 'Avg Resolution Hours',
                         data: data.data,
-                        backgroundColor: '#3b82f6', // Blue
-                        borderRadius: 8
+                        borderColor: '#fbbf24', // Amber
+                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#fbbf24'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    indexAxis: 'y', // Horizontal bars for "Stacked" feel/variety
                     scales: {
-                        x: { beginAtZero: true, stepSize: 1 },
-                        y: { grid: { display: false } }
+                        y: { beginAtZero: true, title: { display: true, text: 'Hours' } },
+                        x: { grid: { display: false } }
                     },
                     plugins: {
                         legend: { display: false }
@@ -122,4 +125,5 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
         });
+
 });

@@ -3,10 +3,12 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import current_user
 from werkzeug.security import check_password_hash
 from functools import wraps
-from .models import db, User, Bug
+from extensions import db
+
+from models import User, Bug
 from datetime import datetime, timedelta
-from .email_utils import send_verification_email, generate_otp
-from .analytics_utils import (
+from utils.email_utils import send_verification_email, generate_otp
+from utils.analytics_utils import (
     get_priority_distribution, 
     get_status_overview, 
     get_trends_data, 
@@ -18,7 +20,6 @@ admin_bp = Blueprint('platform_admin', __name__, url_prefix='/platform-admin')
 def admin_session_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Allow either custom admin session OR valid flask-login session with admin role
         is_admin_session = session.get("admin_authenticated")
         is_flask_admin = current_user.is_authenticated and current_user.role == 'admin'
         
@@ -100,7 +101,7 @@ def toggle_suspend(user_id):
 def change_role(user_id):
     user = User.query.get_or_404(user_id)
     new_role = request.form.get('role')
-    if new_role in ['admin', 'developer', 'tester']:
+    if new_role in ['admin', 'lead', 'developer', 'tester']:
         user.role = new_role
         db.session.commit()
         flash(f"Role updated for {user.email}.", "success")
@@ -111,7 +112,6 @@ def change_role(user_id):
 def developers():
     devs = User.query.filter_by(role='developer').all()
     now = datetime.utcnow()
-    # Add workload info
     for dev in devs:
         dev.workload = Bug.query.filter_by(assigned_to=dev.id, status='Open').count()
         dev.current_bug = Bug.query.filter_by(assigned_to=dev.id, status='In Progress').first()
@@ -125,16 +125,12 @@ def bug_assignment():
     now = datetime.utcnow()
     online_threshold = now - timedelta(minutes=5)
     
-    # Suggestion logic
     suggestions = {}
     for bug in unassigned_bugs:
-        # Rule 1: Prefer online developers
         online_devs = [d for d in devs if d.last_active_at >= online_threshold]
         if online_devs:
-            # Rule 2: Least active bugs
             suggested = min(online_devs, key=lambda d: Bug.query.filter_by(assigned_to=d.id, status='Open').count())
         else:
-            # Rule 3: Lowest workload (offline)
             suggested = min(devs, key=lambda d: Bug.query.filter_by(assigned_to=d.id, status='Open').count()) if devs else None
         suggestions[bug.id] = suggested
 
@@ -155,20 +151,6 @@ def manual_verify(user_id):
     flash(f"User {user.email} manually verified.", "success")
     return redirect(url_for('platform_admin.email_management'))
 
-@admin_bp.route('/email/resend/<int:user_id>', methods=['POST'])
-@admin_session_required
-def resend_verification(user_id):
-    otp = generate_otp()
-    user.verification_code = otp
-    user.verification_expiry = datetime.utcnow() + timedelta(hours=1)
-    db.session.commit()
-    
-    if send_verification_email(user.email, otp):
-        flash(f"Verification code resent to {user.email}.", "success")
-    else:
-        flash("Failed to send email.", "danger")
-    return redirect(url_for('platform_admin.email_management'))
-
 @admin_bp.route('/database')
 @admin_session_required
 def database():
@@ -181,73 +163,6 @@ def database():
         cols = ['id', 'name', 'email', 'role', 'is_verified']
     return render_template('platform_admin/database.html', data=data, cols=cols, table=target)
 
-@admin_bp.route('/database/delete-bug/<int:bug_id>', methods=['POST'])
-@admin_session_required
-def delete_bug(bug_id):
-    bug = Bug.query.get_or_404(bug_id)
-    db.session.delete(bug)
-    db.session.commit()
-    flash("Bug deleted from database.", "info")
-    return redirect(url_for('platform_admin.database', table='bugs'))
-
-# --- Analytics API (Protected by Admin Session) ---
-
-@admin_bp.route('/api/stats/priority')
-@admin_session_required
-def api_priority():
-    """
-    Admin: Priority Distribution
-    ---
-    tags:
-      - Admin
-    responses:
-      200:
-        description: Priority stats for admin
-    """
-    return jsonify(get_priority_distribution())
-
-@admin_bp.route('/api/stats/status')
-@admin_session_required
-def api_status():
-    """
-    Admin: Status Metrics
-    ---
-    tags:
-      - Admin
-    responses:
-      200:
-        description: Status metrics for admin
-    """
-    return jsonify(get_status_overview())
-
-@admin_bp.route('/api/stats/trends')
-@admin_session_required
-def api_trends():
-    """
-    Admin: Trends Analytics
-    ---
-    tags:
-      - Admin
-    responses:
-      200:
-        description: Trends data for admin
-    """
-    return jsonify(get_trends_data())
-
-@admin_bp.route('/api/stats/developer-load')
-@admin_session_required
-def api_dev_load():
-    """
-    Admin: Developer Workload
-    ---
-    tags:
-      - Admin
-    responses:
-      200:
-        description: Developer load stats for admin
-    """
-    return jsonify(get_developer_load())
-
 @admin_bp.route('/bug/assign/<int:bug_id>', methods=['POST'])
 @admin_session_required
 def assign_bug(bug_id):
@@ -257,33 +172,68 @@ def assign_bug(bug_id):
     db.session.commit()
     flash('Bug assigned successfully', 'success')
     return redirect(request.referrer or url_for('platform_admin.bug_assignment'))
-
-@admin_bp.route('/bug/auto-assign-dev/<int:bug_id>', methods=['POST'])
+@admin_bp.route('/bug/auto-assign/<int:bug_id>', methods=['POST'])
 @admin_session_required
 def auto_assign_dev_action(bug_id):
     bug = Bug.query.get_or_404(bug_id)
-    
-    # Get all developers
     devs = User.query.filter_by(role='developer').all()
     if not devs:
-        flash('No developers available to assign this bug.', 'danger')
+        flash("No developers available.", "danger")
         return redirect(url_for('platform_admin.bug_assignment'))
-        
+    
     now = datetime.utcnow()
     online_threshold = now - timedelta(minutes=5)
-    
-    # Filter online developers
     online_devs = [d for d in devs if d.last_active_at >= online_threshold]
     
-    target_pool = online_devs if online_devs else devs
-    
-    # Select dev with lowest workload
-    suggested_dev = min(target_pool, key=lambda d: Bug.query.filter_by(assigned_to=d.id).filter(Bug.status.in_(['Open', 'In Progress'])).count())
-    
-    # Assign
-    bug.assigned_to = suggested_dev.id
+    if online_devs:
+        suggested = min(online_devs, key=lambda d: Bug.query.filter_by(assigned_to=d.id, status='Open').count())
+    else:
+        suggested = min(devs, key=lambda d: Bug.query.filter_by(assigned_to=d.id, status='Open').count())
+        
+    bug.assigned_to = suggested.id
     db.session.commit()
-    
-    flash(f'Bug successfully assigned to {suggested_dev.name}', 'success')
+    flash(f"Bug assigned to {suggested.name}", "success")
     return redirect(url_for('platform_admin.bug_assignment'))
 
+@admin_bp.route('/user/resend-verification/<int:user_id>', methods=['POST'])
+@admin_session_required
+def resend_verification(user_id):
+    user = User.query.get_or_404(user_id)
+    otp = generate_otp()
+    user.verification_code = otp
+    user.verification_expiry = datetime.utcnow() + timedelta(hours=1)
+    db.session.commit()
+    
+    if send_verification_email(user.email, otp):
+        flash(f"Verification email sent to {user.email}", "success")
+    else:
+        flash("Failed to send verification email.", "danger")
+    return redirect(url_for('platform_admin.email_management'))
+@admin_bp.route('/database/delete-bug/<int:bug_id>', methods=['POST'])
+@admin_session_required
+def delete_bug(bug_id):
+    bug = Bug.query.get_or_404(bug_id)
+    db.session.delete(bug)
+    db.session.commit()
+    flash("Bug deleted from database.", "info")
+    return redirect(url_for('platform_admin.database', table='bugs'))
+
+@admin_bp.route('/api/stats/priority')
+@admin_session_required
+def api_priority():
+    return jsonify(get_priority_distribution())
+
+@admin_bp.route('/api/stats/status')
+@admin_session_required
+def api_status():
+    return jsonify(get_status_overview())
+
+@admin_bp.route('/api/stats/trends')
+@admin_session_required
+def api_trends():
+    return jsonify(get_trends_data())
+
+@admin_bp.route('/api/stats/developer-load')
+@admin_session_required
+def api_dev_load():
+    return jsonify(get_developer_load())

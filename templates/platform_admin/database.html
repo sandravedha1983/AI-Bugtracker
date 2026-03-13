@@ -40,12 +40,16 @@
                     {% if table == 'users' %}
                     <form action="{{ url_for('platform_admin.delete_user', user_id=row.id) }}" method="POST"
                         class="inline" onsubmit="return confirm('Delete record permanently?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                         <button type="submit"
                             class="text-xs font-bold text-red-500 uppercase hover:underline">Del</button>
                     </form>
                     {% elif table == 'bugs' %}
                     <form action="{{ url_for('platform_admin.delete_bug', bug_id=row.id) }}" method="POST"
                         class="inline" onsubmit="return confirm('Delete bug permanently?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                         <button type="submit"
                             class="text-xs font-bold text-red-500 uppercase hover:underline">Del</button>
                     </form>

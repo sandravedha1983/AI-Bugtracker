@@ -1,78 +1,67 @@
-# 🐞 AI Bug Tracker — Enterprise-Grade Issue Management
+# AI Bug Tracker 🛡️
 
-A high-performance, Flask-based bug tracking platform featuring **AI-driven priority classification**, **6-digit OTP Email Verification**, **Google OAuth 2.0 Authentication**, and a **Separate Administration Portal**.
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Python](https://img.shields.io/badge/python-3.9+-green)
+![Flask](https://img.shields.io/badge/flask-v3.1-black)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
----
+An enterprise-grade, AI-powered bug tracking system designed for professional development teams.
 
-## ✨ Core Features
+## 🚀 Key Features
 
-- **🧠 AI-Powered Triage**: Automatically predicts bug priority and generates summaries using HuggingFace models.
-- **🔐 Secure Authentication**: 
-    - **6-digit OTP Verification**: Mandatory email verification for all new signups.
-    - **Google Sign-In**: Seamless authentication via Google OAuth 2.0.
-- **🛡️ Multi-Tier RBAC**: Distinct roles for Admins, Developers, and Testers with granular access control.
-- **📊 Real-Time Analytics**: Interactive dashboards with Chart.js visualization for bug trends and priorities.
-- **💼 Platform Administration**: A dedicated, separate portal for system management at `/platform-admin`.
-- **🔌 Database Stability**: Optimized for cloud deployment (Neon PostgreSQL) with connection pooling and pre-pinging.
+- **AI-Powered Insights**: Automated bug priority classification and issue summarization.
+- **Role-Based Workflows**: Tailored dashboards for Admin, Lead, Developer, and Tester.
+- **GitHub Sync**: Automatic mirroring of bugs to GitHub Issues.
+- **Enterprise Security**: CSRF protection, rate limiting, and Bcrypt password hashing.
+- **Dynamic Analytics**: Real-time data visualization using Chart.js.
+- **Modular Architecture**: Clean, scalable codebase with blueprint-based routing.
+- **API Documentation**: Interactive Swagger/OpenAPI documentation.
 
----
+## 🛠️ Technology Stack
 
-## 🛠️ Tech Stack
+- **Backend**: Python (Flask), SQLAlchemy
+- **Database**: PostgreSQL (Production), SQLite (Test)
+- **Frontend**: Tailwind CSS, Chart.js, Vanilla JS
+- **DevOps**: Docker, Docker Compose, GitHub Actions
+- **AI**: NLP-based priority classifier
 
-- **Backend**: Python 3.x, Flask, SQLAlchemy (PostgreSQL in production, SQLite locally)
-- **Frontend**: Tailwind CSS, Vanilla JS, Chart.js
-- **Auth**: Flask-Login + Flask-Dance (Google OAuth) + Flask-Mail (OTP)
-- **AI/ML**: HuggingFace Transformers
+## 📂 Project Structure
 
----
+```text
+├── app/                # Application initialization
+├── models/             # Database models (User, Bug)
+├── routes/             # Blueprint-based route handlers
+├── services/           # Service layer (AI, GitHub)
+├── static/             # Assets (CSS, JS)
+├── templates/          # Jinja2 HTML templates
+├── utils/              # Helper functions and decorators
+├── tests/              # Automated tests (Pytest)
+├── Dockerfile          # Container configuration
+└── wsgi.py            # Application entry point
+```
 
-## 🚀 Setup Instructions
+## ⚙️ Installation & Setup
 
-### 1. Installation
+### Local Setup
+1. Clone the repository.
+2. Install dependencies: `pip install -r requirements.txt`
+3. Configure environment variables in `.env`.
+4. Run the application: `python wsgi.py`
+
+### Docker Setup
 ```bash
-git clone https://github.com/sandravedha1983/AI-Bugtracker.git
-cd AI-Bugtracker
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+docker-compose up --build
 ```
 
-### 2. Configuration (.env)
-Create a `.env` file in the root directory:
-```env
-SECRET_KEY=your_generated_secret_key
-DATABASE_URL=postgresql://user:pass@ep-round-shape.aws.neon.tech/neondb?sslmode=require
-MAIL_SERVER=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USE_TLS=True
-MAIL_USERNAME=your-email@gmail.com
-MAIL_PASSWORD=your-16-digit-app-password
-MAIL_DEFAULT_SENDER=AI Bug Tracker <your-email@gmail.com>
-GOOGLE_CLIENT_ID=your_google_id
-GOOGLE_CLIENT_SECRET=your_google_secret
-OAUTHLIB_INSECURE_TRANSPORT=1 # Set to 1 ONLY for local dev
-```
+## 🔒 Security & Roles
 
-### 3. Initialize Database
-The application automatically creates tables on startup. To manually update the schema with the latest OTP columns:
-```bash
-python scripts/update_db.py
-```
+- **Admin**: System management and global analytics.
+- **Lead**: Team oversight and bug assignment.
+- **Developer**: Task execution and status tracking.
+- **Tester**: Bug reporting and verification.
 
-### 4. Run Application
-```bash
-python app.py
-```
-- **Login/Signup**: `http://127.0.0.1:5000/login`
-- **Admin Dashboard**: `http://127.0.0.1:5000/platform-admin/login`
+## 📄 Documentation
 
----
+Visit `/api/docs` in your browser to access the interactive Swagger API documentation.
 
-## 🔒 Security & Optimization
-- **OTP Verification**: Accounts are locked until the 6-digit code sent via email is verified.
-- **OAuth 2.0**: Secure third-party authentication with Google.
-- **Connection Stability**: Configured with `pool_pre_ping=True` and `pool_recycle=300` for 24/7 reliability on Neon PostgreSQL.
-- **Role Isolation**: Admin actions are separated from standard user routes.
-
----
-*Developed for modern engineering teams.*
+Built with ❤️ by AI Bug Tracker

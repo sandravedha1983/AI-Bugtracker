@@ -107,6 +107,8 @@
                             {% if current_user.role == 'admin' %}
                             <form action="{{ url_for('main.assign_bug', bug_id=bug.id) }}" method="POST"
                                 onchange="this.submit()">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                                 <select name="developer_id"
                                     class="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs focus:outline-none">
                                     <option value="">Unassigned</option>
@@ -150,6 +152,8 @@
                                 {% if current_user.role == 'admin' %}
                                 <form action="{{ url_for('main.delete_bug', bug_id=bug.id) }}" method="POST"
                                     onsubmit="return confirm('Are you sure?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                                     <button type="submit" class="text-slate-400 hover:text-red-500 transition-colors"
                                         title="Delete">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,6 +203,8 @@
         </div>
 
         <form action="{{ url_for('main.add_bug') }}" method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
             <div class="space-y-2">
                 <label class="text-sm font-semibold text-slate-700">Bug Title</label>
                 <input type="text" name="title" required placeholder="e.g., Login button not responding on mobile"
@@ -254,7 +260,10 @@
         try {
             const response = await fetch(`/bug/status/${bugId}`, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
             });
             if (response.ok) {
                 window.location.reload();
@@ -263,5 +272,6 @@
             console.error('Update failed:', err);
         }
     }
+
 </script>
 {% endblock %}

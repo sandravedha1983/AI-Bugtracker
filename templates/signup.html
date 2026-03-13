@@ -10,6 +10,8 @@
         </div>
 
         <form method="POST" class="p-8 space-y-5">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
             <div class="space-y-1">
                 <label class="text-sm font-semibold text-slate-700" for="name">Full Name</label>
                 <input type="text" name="name" id="name" required placeholder="John Doe"
@@ -34,6 +36,8 @@
                     class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all">
                     <option value="tester">Tester</option>
                     <option value="developer">Developer</option>
+                    <option value="lead">Lead</option>
+
                 </select>
                 <p class="text-[10px] text-slate-400 mt-1">Note: Admin accounts cannot be created via signup.</p>
             </div>
