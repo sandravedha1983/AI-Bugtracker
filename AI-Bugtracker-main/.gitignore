@@ -1,0 +1,14 @@
+venv/
+.env
+__pycache__/
+*.pyc
+venv/
+.venv/
+instance/
+.pytest_cache/
+*.db
+.gemini/
+*.log
+.DS_Store
+*.db
+debug_token.py
