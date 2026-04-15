@@ -29,7 +29,6 @@ from extensions import limiter, db
 
 
 @main_bp.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5 per minute")
 def login():
     if request.method == 'POST':
         email = request.form.get('email')
@@ -61,7 +60,7 @@ def login():
     return render_template('login.html')
 
 @main_bp.route('/signup', methods=['GET', 'POST'])
-@limiter.limit("3 per hour")
+
 def signup():
     if request.method == 'POST':
         name = request.form.get('name')
