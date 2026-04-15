@@ -38,15 +38,21 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
         
-        user = User.query.filter_by(email=email, role='admin').first()
+        print("Admin login attempt:", email)
         
-        if user and user.check_password(password):
-            session["admin_authenticated"] = True
-            session["admin_user_id"] = user.id
-            flash("Admin session started.", "success")
-            return redirect(url_for('platform_admin.dashboard'))
-        else:
-            flash("Invalid admin credentials", "danger")
+        try:
+            user = User.query.filter_by(email=email, role='admin').first()
+            
+            if user and user.check_password(password):
+                session["admin_authenticated"] = True
+                session["admin_user_id"] = user.id
+                flash("Admin session started.", "success")
+                return redirect(url_for('platform_admin.dashboard'))
+            else:
+                flash("Invalid admin credentials", "danger")
+        except Exception as e:
+            print("Admin Auth Error:", e)
+            flash("An error occurred during admin login.", "danger")
             
     return render_template('platform_admin/login.html')
 
