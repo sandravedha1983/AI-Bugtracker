@@ -32,9 +32,11 @@ from extensions import limiter, db
 @limiter.limit("5 per minute")
 def login():
     if request.method == 'POST':
-
         email = request.form.get('email')
         password = request.form.get('password')
+        
+        print("Login attempt:", email)
+        
         try:
             user = User.query.filter_by(email=email).first()
             
@@ -45,13 +47,16 @@ def login():
                 if not user.is_verified:
                     flash('Please verify your email before logging in.', 'warning')
                     return redirect(url_for('main.login'))
+                
                 login_user(user)
                 return redirect(url_for('main.dashboard'))
             else:
-                flash('Invalid email or password', 'danger')
+                flash("Invalid credentials", 'danger')
+                return redirect(url_for('main.login'))
         except Exception as e:
-            current_app.logger.error(f"Login database error: {str(e)}")
-            flash('A database error occurred. Please try again later.', 'danger')
+            print("Auth error:", e)
+            flash('Something went wrong', 'danger')
+            return redirect(url_for('main.login'))
             
     return render_template('login.html')
 
@@ -59,43 +64,50 @@ def login():
 @limiter.limit("3 per hour")
 def signup():
     if request.method == 'POST':
-
         name = request.form.get('name')
         email = request.form.get('email')
         password = request.form.get('password')
         role = request.form.get('role', 'tester')
 
-        email_regex = r'^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w+$'
-        if not re.match(email_regex, email):
-            flash('Invalid email format.', 'danger')
-            return redirect(url_for('main.signup'))
-        
-        if len(password) < 6:
-            flash('Password must be at least 6 characters.', 'danger')
-            return redirect(url_for('main.signup'))
+        print("Signup attempt:", email)
 
-        if User.query.filter_by(email=email).first():
-            flash('Email already registered.', 'danger')
-            return redirect(url_for('main.signup'))
+        try:
+            email_regex = r'^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w+$'
+            if not re.match(email_regex, email):
+                flash('Invalid email format.', 'danger')
+                return redirect(url_for('main.signup'))
+            
+            if len(password) < 6:
+                flash('Password must be at least 6 characters.', 'danger')
+                return redirect(url_for('main.signup'))
 
-        new_user = User(name=name, email=email, role=role, is_verified=False)
-        new_user.set_password(password)
-        
-        from utils.email_utils import generate_otp
-        otp = generate_otp()
-        new_user.verification_code = otp
-        from datetime import datetime, timedelta
-        new_user.verification_expiry = datetime.utcnow() + timedelta(hours=1)
-        
-        db.session.add(new_user)
-        db.session.commit()
-        
-        if send_verification_email(email, otp):
-            flash('Signup successful! Please check your email for the 6-digit verification code.', 'success')
-            return redirect(url_for('main.verify_otp', email=email))
-        else:
-            flash('Signup successful, but the verification email could not be sent. Please contact support.', 'warning')
-            return redirect(url_for('main.login'))
+            existing_user = User.query.filter_by(email=email).first()
+            if existing_user:
+                flash("User already exists", 'danger')
+                return redirect(url_for('main.signup'))
+
+            new_user = User(name=name, email=email, role=role, is_verified=False)
+            new_user.set_password(password)
+            
+            from utils.email_utils import generate_otp
+            otp = generate_otp()
+            new_user.verification_code = otp
+            from datetime import datetime, timedelta
+            new_user.verification_expiry = datetime.utcnow() + timedelta(hours=1)
+            
+            db.session.add(new_user)
+            db.session.commit()
+            
+            if send_verification_email(email, otp):
+                flash('Signup successful! Please check your email for the 6-digit verification code.', 'success')
+                return redirect(url_for('main.verify_otp', email=email))
+            else:
+                flash('Signup successful, but the verification email could not be sent. Please contact support.', 'warning')
+                return redirect(url_for('main.login'))
+        except Exception as e:
+            print("Auth error:", e)
+            flash("Something went wrong", "danger")
+            return redirect(url_for("main.signup"))
 
     return render_template('signup.html')
 
@@ -163,34 +175,41 @@ def logout():
     logout_user()
     return redirect(url_for('main.login'))
 
-@main_bp.route("/google/callback")
-def google_callback():
-    if not google.authorized:
-        return redirect(url_for("google.login"))
+@main_bp.route("/login/google/authorized")
+def google_authorized():
+    try:
+        if not google.authorized:
+            return redirect(url_for("google.login"))
 
-    resp = google.get("/oauth2/v2/userinfo")
-    if not resp.ok:
-        flash("Failed to fetch user info from Google.", "danger")
-        return redirect(url_for("main.login"))
+        resp = google.get("/oauth2/v2/userinfo")
+        if not resp.ok:
+            return "Google login failed", 400
 
-    google_info = resp.json()
-    email = google_info["email"]
-    name = google_info.get("name", email.split('@')[0])
+        user_info = resp.json()
+        email = user_info.get("email")
 
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        user = User(
-            name=name,
-            email=email,
-            role="tester",
-            is_verified=True
-        )
-        db.session.add(user)
-        db.session.commit()
+        if not email:
+            return "Email not found", 400
 
-    login_user(user)
-    flash(f"Successfully signed in as {name}", "success")
-    return redirect(url_for("main.dashboard"))
+        name = user_info.get("name", email.split('@')[0])
+
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            user = User(
+                name=name,
+                email=email,
+                role="tester",
+                is_verified=True
+            )
+            db.session.add(user)
+            db.session.commit()
+
+        login_user(user)
+        flash(f"Successfully signed in as {name}", "success")
+        return redirect(url_for("main.dashboard"))
+    except Exception as e:
+        print("Google OAuth error:", e)
+        return "OAuth failed", 500
 
 @main_bp.route('/dashboard')
 @login_required

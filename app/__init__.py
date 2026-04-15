@@ -29,7 +29,9 @@ def create_app(config_class=Config):
                 template_folder='../templates', 
                 static_folder='../static')
 
-    
+    # Handle proxy headers (necessary for HTTPS on Render/Heroku)
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
     app.config.from_object(config_class)
     
     db.init_app(app)
@@ -64,9 +66,9 @@ def create_app(config_class=Config):
         client_secret=app.config.get("GOOGLE_CLIENT_SECRET"),
         scope=["profile", "email"],
         offline=True,
-        redirect_to="main.google_callback"
+        redirect_to="main.google_authorized"
     )
-    app.register_blueprint(google_bp, url_prefix="/login")
+    app.register_blueprint(google_bp, url_prefix="/")
 
 
     # Automatically create tables in the database

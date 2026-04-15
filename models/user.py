@@ -1,6 +1,7 @@
 from datetime import datetime
 from flask_login import UserMixin
-from extensions import bcrypt, db
+from werkzeug.security import generate_password_hash, check_password_hash
+from extensions import db
 
 
 class User(db.Model, UserMixin):
@@ -20,10 +21,10 @@ class User(db.Model, UserMixin):
     bugs_assigned = db.relationship('Bug', foreign_keys='Bug.assigned_to', backref='developer', lazy=True)
 
     def set_password(self, password):
-        self.password = bcrypt.generate_password_hash(password).decode('utf-8')
+        self.password = generate_password_hash(password)
 
     def check_password(self, password):
         if not self.password:
             return False
-        return bcrypt.check_password_hash(self.password, password)
+        return check_password_hash(self.password, password)
 
