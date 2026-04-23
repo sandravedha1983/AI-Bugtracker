@@ -7,6 +7,8 @@ load_dotenv()
 class Config:
 
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-12345')
+    DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    PROPAGATE_EXCEPTIONS = True
     
     # Database Configuration
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
@@ -32,7 +34,7 @@ class Config:
         })
 
     # Session & Cookie Security
-    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', str(not DEBUG)).lower() == 'true'
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
     PERMANENT_SESSION_LIFETIME = timedelta(hours=1)

@@ -32,10 +32,13 @@ from extensions import limiter, db
 def login():
     if request.method == 'POST':
 
-        email = request.form.get('email')
+        email = request.form.get('email', '').strip().lower()
         password = request.form.get('password')
+        print(f"Login attempt for: '{email}'")
         try:
             user = User.query.filter_by(email=email).first()
+            if not user:
+                print(f"User not found in DB: '{email}'")
             
             if user and user.check_password(password):
                 if user.is_suspended:
@@ -59,9 +62,11 @@ def signup():
     if request.method == 'POST':
 
         name = request.form.get('name')
-        email = request.form.get('email')
+        email = request.form.get('email', '').strip().lower()
         password = request.form.get('password')
         role = request.form.get('role', 'tester')
+
+        print(f"Signup attempt for: '{email}'")
 
         email_regex = r'^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w+$'
         if not re.match(email_regex, email):
@@ -99,13 +104,16 @@ def signup():
 
 @main_bp.route('/verify-otp', methods=['GET', 'POST'])
 def verify_otp():
-    email = request.args.get('email')
+    email = request.args.get('email', '').strip().lower()
     if request.method == 'POST':
-        email = request.form.get('email')
+        email = request.form.get('email', '').strip().lower()
         otp = request.form.get('otp')
+        
+        print(f"OTP Verification attempt for: '{email}' with code: {otp}")
         
         user = User.query.filter_by(email=email).first()
         if not user:
+            print(f"User not found for OTP: '{email}'")
             flash('User not found.', 'danger')
             return redirect(url_for('main.signup'))
         
@@ -132,7 +140,8 @@ def verify_otp():
 @main_bp.route('/resend-verification', methods=['GET', 'POST'])
 def resend_verification_request():
     if request.method == 'POST':
-        email = request.form.get('email')
+        email = request.form.get('email', '').strip().lower()
+        print(f"Resend verification requested for: '{email}'")
         user = User.query.filter_by(email=email).first()
         if user:
             if user.is_verified:
