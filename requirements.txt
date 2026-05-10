@@ -23,13 +23,11 @@ WTForms==3.1.2
 Flask-Dance==7.1.0
 oauthlib==3.2.2
 requests-oauthlib==2.0.0
-python-jose==3.3.0
+python-jose[cryptography]==3.3.0
 cryptography==42.0.8
 
 # API & Documentation
 flasgger==0.9.7.1
-pydantic==2.8.2
-pydantic_core==2.20.1
 
 # Utilities & Integration
 requests==2.32.3
@@ -46,7 +44,6 @@ charset-normalizer==3.3.2
 # Production Server & DevOps
 gunicorn==22.0.0
 whitenoise==6.7.0
-ProxyFix==0.1.0
 
 # Monitoring & Logging
 Flask-Limiter==3.7.0
