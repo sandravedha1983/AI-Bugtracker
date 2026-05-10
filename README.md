@@ -158,10 +158,6 @@ Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md)
 
 ---
 
-## 📜 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
 
----
-
-**Developed with ❤️ by [Your Name/GitHub]**
+**Developed with ❤️ 
