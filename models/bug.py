@@ -7,14 +7,19 @@ class Bug(db.Model):
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)
     priority = db.Column(db.String(20), nullable=False) # Low, Medium, High
+    severity = db.Column(db.String(20), nullable=True) # Critical, Major, Minor, Trivial
+    module = db.Column(db.String(100), nullable=True) # UI, Backend, Database, AI, etc.
     status = db.Column(db.String(20), default='Open') # Open, In Progress, Resolved, Closed
     ai_summary = db.Column(db.Text)
     assigned_to = db.Column(db.Integer, db.ForeignKey('user.id'))
     created_by = db.Column(db.Integer, db.ForeignKey('user.id')) # Track who created it (for testers)
     github_url = db.Column(db.String(255), nullable=True)
+    github_issue_number = db.Column(db.Integer, nullable=True)
+    is_deleted = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     resolved_at = db.Column(db.DateTime, nullable=True)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
 
     def to_dict(self):

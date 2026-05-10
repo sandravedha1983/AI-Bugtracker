@@ -42,24 +42,42 @@ def get_developer_load():
     data = [r[1] for r in results]
     
     return {"labels": labels, "data": data}
+def get_severity_distribution():
+    """Returns counts of bugs grouped by severity."""
+    results = db.session.query(Bug.severity, func.count(Bug.id)).group_by(Bug.severity).all()
+    return {severity if severity else "Unassigned": count for severity, count in results}
+
+def get_module_distribution():
+    """Returns counts of bugs grouped by module."""
+    results = db.session.query(Bug.module, func.count(Bug.id)).group_by(Bug.module).all()
+    return {module if module else "Unassigned": count for module, count in results}
+
+def get_ai_accuracy_stats():
+    """Mock stats for AI classification (in a real app, this would compare AI vs Human)."""
+    return {"accuracy": 85, "precision": 82, "recall": 88}
+
 def get_resolution_trends():
     """Returns average resolution time in hours for the last 7 days."""
     today = datetime.utcnow().date()
     last_week = [today - timedelta(days=i) for i in range(6, -1, -1)]
     
-    # Calculate difference between resolved_at and created_at
-    # Filter for bugs resolved in the last 7 days
-    results = db.session.query(
-        func.date(Bug.resolved_at),
-        func.avg(func.extract('epoch', Bug.resolved_at - Bug.created_at)) / 3600
-    ).filter(
+    # Generic approach that works for most DBs
+    bugs = Bug.query.filter(
         Bug.status == 'Resolved',
         Bug.resolved_at >= datetime.utcnow() - timedelta(days=7)
-    ).group_by(func.date(Bug.resolved_at)).all()
+    ).all()
     
-    res_map = {str(date): round(avg_hours, 1) for date, avg_hours in results if avg_hours is not None}
+    daily_res = {}
+    for bug in bugs:
+        date_str = str(bug.resolved_at.date())
+        duration = (bug.resolved_at - bug.created_at).total_seconds() / 3600
+        if date_str not in daily_res:
+            daily_res[date_str] = []
+        daily_res[date_str].append(duration)
     
-    labels = [date.strftime('%a') for date in last_week]
+    res_map = {date: round(sum(vals)/len(vals), 1) for date, vals in daily_res.items()}
+    
+    labels = [date.strftime('%Y-%m-%d') for date in last_week]
     data = [res_map.get(str(date), 0) for date in last_week]
     
     return {"labels": labels, "data": data}

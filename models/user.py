@@ -17,6 +17,8 @@ class User(db.Model, UserMixin):
     verification_expiry = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_active_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_deleted = db.Column(db.Boolean, default=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
     
     bugs_assigned = db.relationship('Bug', foreign_keys='Bug.assigned_to', backref='developer', lazy=True)
 

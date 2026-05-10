@@ -5,11 +5,9 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 
 from models import User, Bug
-from services.ai_service import predict_priority, generate_summary
 from utils.email_utils import send_verification_email
 from utils.decorators import role_required, admin_required, developer_required, tester_required
 from flask_dance.contrib.google import google
-from services.github_service import create_github_issue
 
 main_bp = Blueprint('main', __name__)
 
@@ -305,6 +303,8 @@ def bugs():
     
     return render_template('bugs.html', bugs=bugs_list, developers=developers)
 
+from services.bug_service import BugService
+
 @main_bp.route('/bug/add', methods=['POST'])
 @login_required
 @tester_required
@@ -312,32 +312,18 @@ def add_bug():
     title = request.form.get('title')
     description = request.form.get('description')
     
+    if not title or not description:
+        flash("Title and description are required.", "danger")
+        return redirect(url_for('main.bugs'))
+
     try:
-        priority = predict_priority(description)
-        ai_summary = generate_summary(description)
+        bug = BugService.create_bug(title, description, current_user.id)
+        flash(f'Bug reported successfully! AI suggested priority: {bug.priority}', 'success')
+        if bug.github_url:
+            flash(f'GitHub issue created: {bug.github_url}', 'info')
     except Exception as e:
-        print(f"AI Error: {e}")
-        priority = "Medium"
-        ai_summary = description[:100]
-
-    # Create GitHub Issue
-    github_url = create_github_issue(title, description)
-
-    new_bug = Bug(
-        title=title,
-        description=description,
-        priority=priority,
-        ai_summary=ai_summary,
-        created_by=current_user.id,
-        github_url=github_url
-    )
-    
-    db.session.add(new_bug)
-    db.session.commit()
-    
-    flash(f'Bug reported successfully! AI suggested priority: {priority}', 'success')
-    if github_url:
-        flash(f'GitHub issue created: <a href="{github_url}" target="_blank">{github_url}</a>', 'info')
+        current_app.logger.error(f"Error adding bug: {e}")
+        flash("An error occurred while reporting the bug.", "danger")
     
     return redirect(url_for('main.bugs'))
 
@@ -345,11 +331,13 @@ def add_bug():
 @login_required
 @role_required(['admin', 'lead'])
 def assign_bug(bug_id):
-    bug = Bug.query.get_or_404(bug_id)
     dev_id = request.form.get('developer_id')
-    bug.assigned_to = dev_id
-    db.session.commit()
-    flash('Bug assigned successfully', 'success')
+    try:
+        BugService.assign_bug(bug_id, dev_id, current_user.id)
+        flash('Bug assigned successfully', 'success')
+    except Exception as e:
+        current_app.logger.error(f"Error assigning bug: {e}")
+        flash("Failed to assign bug.", "danger")
     return redirect(url_for('main.bugs'))
 
 @main_bp.route('/bug/status/<int:bug_id>', methods=['POST'])
@@ -362,23 +350,23 @@ def update_status(bug_id):
         return redirect(url_for('main.bugs'))
     
     new_status = request.form.get('status')
-    if new_status == 'Resolved' and bug.status != 'Resolved':
-        bug.resolved_at = datetime.utcnow()
-    elif new_status != 'Resolved':
-        bug.resolved_at = None
-        
-    bug.status = new_status
-    db.session.commit()
+    try:
+        BugService.update_status(bug_id, new_status, current_user.id)
+        flash(f'Status updated to {new_status}', 'success')
+    except Exception as e:
+        current_app.logger.error(f"Error updating status: {e}")
+        flash("Failed to update status.", "danger")
 
-    flash(f'Status updated to {new_status}', 'success')
     return redirect(url_for('main.bugs'))
 
 @main_bp.route('/bug/delete/<int:bug_id>', methods=['POST'])
 @login_required
 @admin_required
 def delete_bug(bug_id):
-    bug = Bug.query.get_or_404(bug_id)
-    db.session.delete(bug)
-    db.session.commit()
-    flash('Bug deleted', 'info')
+    try:
+        BugService.soft_delete(bug_id, current_user.id)
+        flash('Bug deleted (archived)', 'info')
+    except Exception as e:
+        current_app.logger.error(f"Error deleting bug: {e}")
+        flash("Failed to delete bug.", "danger")
     return redirect(url_for('main.bugs'))

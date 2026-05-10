@@ -1,33 +1,12 @@
-import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session, current_app
-from flask_login import current_user
-from werkzeug.security import check_password_hash
-from functools import wraps
+from flask_login import current_user, login_required
+from utils.decorators import admin_required
 from extensions import db
-
-from models import User, Bug
+from models import User, Bug, AuditLog
+from services.bug_service import BugService
 from datetime import datetime, timedelta
-from utils.email_utils import send_verification_email, generate_otp
-from utils.analytics_utils import (
-    get_priority_distribution, 
-    get_status_overview, 
-    get_trends_data, 
-    get_developer_load
-)
 
 admin_bp = Blueprint('platform_admin', __name__, url_prefix='/platform-admin')
-
-def admin_session_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        is_admin_session = session.get("admin_authenticated")
-        is_flask_admin = current_user.is_authenticated and current_user.role == 'admin'
-        
-        if not is_admin_session and not is_flask_admin:
-            flash("Admin authentication required.", "warning")
-            return redirect(url_for('platform_admin.login'))
-        return f(*args, **kwargs)
-    return decorated_function
 
 @admin_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -63,7 +42,8 @@ def logout():
     return redirect(url_for('platform_admin.login'))
 
 @admin_bp.route('/')
-@admin_session_required
+@login_required
+@admin_required
 def dashboard():
     online_threshold = datetime.utcnow() - timedelta(minutes=5)
     stats = {
@@ -77,14 +57,16 @@ def dashboard():
     return render_template('platform_admin/dashboard.html', stats=stats)
 
 @admin_bp.route('/users')
-@admin_session_required
+@login_required
+@admin_required
 def users():
     users_list = User.query.all()
     now = datetime.utcnow()
     return render_template('platform_admin/users.html', users=users_list, now=now)
 
 @admin_bp.route('/user/delete/<int:user_id>', methods=['POST'])
-@admin_session_required
+@login_required
+@admin_required
 def delete_user(user_id):
     user = User.query.get_or_404(user_id)
     db.session.delete(user)
@@ -93,7 +75,8 @@ def delete_user(user_id):
     return redirect(url_for('platform_admin.users'))
 
 @admin_bp.route('/user/suspend/<int:user_id>', methods=['POST'])
-@admin_session_required
+@login_required
+@admin_required
 def toggle_suspend(user_id):
     user = User.query.get_or_404(user_id)
     user.is_suspended = not user.is_suspended
@@ -103,7 +86,8 @@ def toggle_suspend(user_id):
     return redirect(url_for('platform_admin.users'))
 
 @admin_bp.route('/user/role/<int:user_id>', methods=['POST'])
-@admin_session_required
+@login_required
+@admin_required
 def change_role(user_id):
     user = User.query.get_or_404(user_id)
     new_role = request.form.get('role')
@@ -114,7 +98,8 @@ def change_role(user_id):
     return redirect(url_for('platform_admin.users'))
 
 @admin_bp.route('/developers')
-@admin_session_required
+@login_required
+@admin_required
 def developers():
     devs = User.query.filter_by(role='developer').all()
     now = datetime.utcnow()
@@ -124,7 +109,8 @@ def developers():
     return render_template('platform_admin/developers.html', devs=devs, now=now)
 
 @admin_bp.route('/bug-assignment')
-@admin_session_required
+@login_required
+@admin_required
 def bug_assignment():
     unassigned_bugs = Bug.query.filter_by(assigned_to=None).all()
     devs = User.query.filter_by(role='developer').all()
@@ -143,13 +129,15 @@ def bug_assignment():
     return render_template('platform_admin/bug_assignment.html', bugs=unassigned_bugs, devs=devs, suggestions=suggestions, now=now)
 
 @admin_bp.route('/email-management')
-@admin_session_required
+@login_required
+@admin_required
 def email_management():
     users_list = User.query.all()
     return render_template('platform_admin/email_management.html', users=users_list)
 
 @admin_bp.route('/email/verify/<int:user_id>', methods=['POST'])
-@admin_session_required
+@login_required
+@admin_required
 def manual_verify(user_id):
     user = User.query.get_or_404(user_id)
     user.is_verified = True
@@ -158,7 +146,8 @@ def manual_verify(user_id):
     return redirect(url_for('platform_admin.email_management'))
 
 @admin_bp.route('/database')
-@admin_session_required
+@login_required
+@admin_required
 def database():
     target = request.args.get('table', 'users')
     if target == 'bugs':
@@ -170,7 +159,8 @@ def database():
     return render_template('platform_admin/database.html', data=data, cols=cols, table=target)
 
 @admin_bp.route('/bug/assign/<int:bug_id>', methods=['POST'])
-@admin_session_required
+@login_required
+@admin_required
 def assign_bug(bug_id):
     bug = Bug.query.get_or_404(bug_id)
     dev_id = request.form.get('developer_id')
@@ -179,7 +169,8 @@ def assign_bug(bug_id):
     flash('Bug assigned successfully', 'success')
     return redirect(request.referrer or url_for('platform_admin.bug_assignment'))
 @admin_bp.route('/bug/auto-assign/<int:bug_id>', methods=['POST'])
-@admin_session_required
+@login_required
+@admin_required
 def auto_assign_dev_action(bug_id):
     bug = Bug.query.get_or_404(bug_id)
     devs = User.query.filter_by(role='developer').all()
@@ -202,7 +193,8 @@ def auto_assign_dev_action(bug_id):
     return redirect(url_for('platform_admin.bug_assignment'))
 
 @admin_bp.route('/user/resend-verification/<int:user_id>', methods=['POST'])
-@admin_session_required
+@login_required
+@admin_required
 def resend_verification(user_id):
     user = User.query.get_or_404(user_id)
     otp = generate_otp()
@@ -216,7 +208,8 @@ def resend_verification(user_id):
         flash("Failed to send verification email.", "danger")
     return redirect(url_for('platform_admin.email_management'))
 @admin_bp.route('/database/delete-bug/<int:bug_id>', methods=['POST'])
-@admin_session_required
+@login_required
+@admin_required
 def delete_bug(bug_id):
     bug = Bug.query.get_or_404(bug_id)
     db.session.delete(bug)
@@ -225,21 +218,25 @@ def delete_bug(bug_id):
     return redirect(url_for('platform_admin.database', table='bugs'))
 
 @admin_bp.route('/api/stats/priority')
-@admin_session_required
+@login_required
+@admin_required
 def api_priority():
     return jsonify(get_priority_distribution())
 
 @admin_bp.route('/api/stats/status')
-@admin_session_required
+@login_required
+@admin_required
 def api_status():
     return jsonify(get_status_overview())
 
 @admin_bp.route('/api/stats/trends')
-@admin_session_required
+@login_required
+@admin_required
 def api_trends():
     return jsonify(get_trends_data())
 
 @admin_bp.route('/api/stats/developer-load')
-@admin_session_required
+@login_required
+@admin_required
 def api_dev_load():
     return jsonify(get_developer_load())

@@ -2,48 +2,70 @@
 
 {% block content %}
 <div class="space-y-8">
-    <header>
-        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Analytics Dashboard</h1>
-        <p class="text-slate-500 mt-1">Real-time visualization of bug tracking metrics.</p>
+    <header class="flex justify-between items-end">
+        <div>
+            <h1 class="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">System Analytics</h1>
+            <p class="text-slate-500 dark:text-slate-400 mt-2">Intelligent bug tracking insights and performance metrics.</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 flex gap-2">
+            <button class="px-4 py-2 text-sm font-medium bg-slate-100 dark:bg-slate-700 rounded-lg">Last 7 Days</button>
+            <button class="px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg">Last 30 Days</button>
+        </div>
     </header>
 
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="glass-card p-6 bg-white dark:bg-slate-800">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Issues</p>
+            <h2 id="totalBugs" class="text-3xl font-bold text-slate-900 dark:text-white">--</h2>
+            <div class="mt-4 flex items-center gap-2 text-green-500 text-sm font-semibold">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                <span>+12.5%</span>
+            </div>
+        </div>
+        <div class="glass-card p-6 bg-white dark:bg-slate-800">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Resolution Rate</p>
+            <h2 id="resRate" class="text-3xl font-bold text-slate-900 dark:text-white">--%</h2>
+            <div class="mt-4 w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                <div id="resRateBar" class="bg-indigo-600 h-full" style="width: 0%"></div>
+            </div>
+        </div>
+        <div class="glass-card p-6 bg-white dark:bg-slate-800">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Avg Resolution</p>
+            <h2 id="avgResTime" class="text-3xl font-bold text-slate-900 dark:text-white">--h</h2>
+            <p class="mt-4 text-xs text-slate-500 italic">Across all severities</p>
+        </div>
+        <div class="glass-card p-6 bg-white dark:bg-slate-800">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">AI Precision</p>
+            <h2 id="aiPrecision" class="text-3xl font-bold text-slate-900 dark:text-white">--%</h2>
+            <div class="mt-4 flex items-center gap-2 text-indigo-500 text-sm font-semibold">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                <span>Verified Model</span>
+            </div>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Bug Priority Distribution -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <h3 class="text-lg font-bold text-slate-800 mb-4">Bug Priority Distribution</h3>
-            <div class="h-64 flex items-center justify-center">
-                <canvas id="priorityChart"></canvas>
-            </div>
+        <div class="glass-card p-8 bg-white dark:bg-slate-800">
+            <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-6">Issue Trends</h3>
+            <div id="trendsChart" class="h-80"></div>
         </div>
 
-        <!-- Bug Status Overview -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <h3 class="text-lg font-bold text-slate-800 mb-4">Bug Status Overview</h3>
-            <div class="h-64 flex items-center justify-center">
-                <canvas id="statusChart"></canvas>
-            </div>
+        <div class="glass-card p-8 bg-white dark:bg-slate-800">
+            <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-6">Severity Distribution</h3>
+            <div id="severityChart" class="h-80"></div>
         </div>
 
-        <!-- Bugs Reported Over Time -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <h3 class="text-lg font-bold text-slate-800 mb-4">Bugs Reported Over Time (Last 7 Days)</h3>
-            <div class="h-64">
-                <canvas id="trendsChart"></canvas>
-            </div>
+        <div class="glass-card p-8 bg-white dark:bg-slate-800">
+            <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-6">Module Health Overview</h3>
+            <div id="moduleChart" class="h-80"></div>
         </div>
 
-        <!-- Resolution Time Trend -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <h3 class="text-lg font-bold text-slate-800 mb-4">Average Resolution Time (Hours)</h3>
-            <div class="h-64">
-                <canvas id="resolutionChart"></canvas>
-            </div>
+        <div class="glass-card p-8 bg-white dark:bg-slate-800">
+            <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-6">Developer Performance Load</h3>
+            <div id="devLoadChart" class="h-80"></div>
         </div>
-
     </div>
 </div>
 
-<!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
 {% endblock %}
