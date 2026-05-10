@@ -5,6 +5,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 
 from app.models import User, Bug
+from app.extensions import limiter, db
 from app.utils.email_utils import send_verification_email
 from app.utils.decorators import role_required, admin_required, developer_required, tester_required
 from flask_dance.contrib.google import google
@@ -23,7 +24,7 @@ def update_last_active():
         current_user.last_active_at = datetime.utcnow()
         db.session.commit()
 
-from app.extensions import limiter, db
+
 
 
 @main_bp.route('/login', methods=['GET', 'POST'])
