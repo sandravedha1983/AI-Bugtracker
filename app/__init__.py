@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from flasgger import Swagger
 from flask_login import LoginManager
 from dotenv import load_dotenv
@@ -10,30 +10,29 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-# Import extensions
-from extensions import db, mail, csrf, limiter, bcrypt, migrate
-from models import User, Bug
-from routes import main_bp, admin_bp, analytics_bp, api_bp
+# Import extensions and config
+from .extensions import db, mail, csrf, limiter, bcrypt, migrate
+from .models import User, Bug
+from .routes.main import main_bp
+from .routes.admin import admin_bp
+from .routes.analytics import analytics_bp
+from .api.routes import api_bp
 from config import Config
 
 def create_app(config_class=Config):
     load_dotenv()
     
-    # Use absolute paths for templates and static folders to ensure they load on Render
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    template_dir = os.path.join(os.path.dirname(base_dir), 'templates')
-    static_dir = os.path.join(os.path.dirname(base_dir), 'static')
-
+    # Paths are now relative to this file
     app = Flask(__name__, 
-                template_folder=template_dir, 
-                static_folder=static_dir)
+                template_folder='templates', 
+                static_folder='static')
 
     app.config.from_object(config_class)
     
     # Critical for Render: Handle HTTPS proxy headers
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-    from middleware.security import add_security_headers
+    from .middleware.security import add_security_headers
     app.after_request(add_security_headers)
 
     # Configure Logging
@@ -126,11 +125,10 @@ def create_app(config_class=Config):
     # Database and Seed Data
     with app.app_context():
         try:
-            # Note: db.create_all() is fine for dev, but in production we use migrations
             db.create_all()
             app.logger.info("Database tables verified.")
             
-            from utils.seeds import seed_database
+            from .utils.seeds import seed_database
             seed_database(app)
 
         except Exception as e:
