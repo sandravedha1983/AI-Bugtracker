@@ -1,7 +1,6 @@
 # 🛡️ AI Bug Tracker - Production-Grade Issue Management
 
 [![CI/CD Pipeline](https://github.com/sandravedha1983/AI-Bugtracker/actions/workflows/ci.yml/badge.svg)](https://github.com/sandravedha1983/AI-Bugtracker/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Flask](https://img.shields.io/badge/flask-%23000.svg?style=flat&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 
