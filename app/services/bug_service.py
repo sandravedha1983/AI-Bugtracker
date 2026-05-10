@@ -21,7 +21,7 @@ class BugService:
                 ai_summary = description[:100]
 
             # GitHub Integration
-            from services.github_service import GitHubService
+            from app.services.github_service import GitHubService
             gh_service = GitHubService()
             github_url, github_issue_number = gh_service.create_issue(title, description)
 
@@ -65,7 +65,7 @@ class BugService:
         
         # Sync with GitHub
         if bug.github_issue_number:
-            from services.github_service import GitHubService
+            from app.services.github_service import GitHubService
             gh_service = GitHubService()
             gh_service.update_issue_status(bug.github_issue_number, status)
 
