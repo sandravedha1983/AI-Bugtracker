@@ -25,6 +25,7 @@ oauthlib==3.2.2
 requests-oauthlib==2.0.0
 python-jose[cryptography]==3.3.0
 cryptography==42.0.8
+Flask-Mail==0.10.0
 
 # API & Documentation
 flasgger==0.9.7.1
